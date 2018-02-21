@@ -1,0 +1,5 @@
+*.backup
+*.plan
+*.txt
+.terraform/
+archives/
