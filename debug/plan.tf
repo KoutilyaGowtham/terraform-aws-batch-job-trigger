@@ -22,7 +22,7 @@ module "trigger_batch_job" {
     purpose                 = "Triggers Spring Batch jobs via HTTP POST."
     freetext                = "Must coordinate the schedule with the EC2 instances."
     role_arn                = "${data.terraform_remote_state.iam.ec2_park_role_arn}"
-    trigger_cron_expression = "cron(0 7 ? * MON-FRI *)"
-    api_key                 = "CHs9qbXE9naZIeQynhJPA1ejzbshJpGr8LLwJfczX"
+    trigger_cron_expression = "cron(1/2 * ? * MON-FRI *)"
+    api_key                 = "FAKE KEY"
     endpoint                = "https://government.transparent.engineering/development/slurp-e-archiver/launch"
 }

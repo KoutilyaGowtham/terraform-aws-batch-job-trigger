@@ -21,7 +21,7 @@ resource "template_dir" "trigger_job" {
 
 resource "null_resource" "python_packages" {
     provisioner "local-exec" {
-        command = "pip install request -t ${path.module}/python-packages"
+        command = "pip install requests -t ${path.module}/python-packages"
     }
 }
 
