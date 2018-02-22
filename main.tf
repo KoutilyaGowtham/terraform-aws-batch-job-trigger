@@ -20,6 +20,10 @@ resource "template_dir" "trigger_job" {
 }
 
 resource "null_resource" "python_packages" {
+    triggers = {
+        run_every_time = "${timestamp()}"
+    }
+
     provisioner "local-exec" {
         command = "pip install requests -t ${path.module}/python-packages"
     }
@@ -29,8 +33,7 @@ data "archive_file" "trigger_job" {
     type        = "zip"
     output_path = "${path.module}/archives/trigger-job.zip"
     source_dir  = "${path.module}/python-packages"
-#    source_dir  = "${template_dir.trigger_job.destination_dir}"
-    depends_on = [ "null_resource.python_packages" ]
+    depends_on  = ["null_resource.python_packages"]
 }
 
 resource "aws_lambda_function" "trigger_job" {
