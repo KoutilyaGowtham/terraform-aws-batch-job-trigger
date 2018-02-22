@@ -3,3 +3,4 @@
 *.txt
 .terraform/
 archives/
+python-packages/

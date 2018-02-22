@@ -1,5 +1,5 @@
 terraform {
-    required_version = ">= 0.10.6"
+    required_version = ">= 0.11.3"
     backend "s3" {}
 }
 
@@ -10,114 +10,63 @@ provider "aws" {
 resource "random_pet" "pet" {
 }
 
-data "template_file" "start_lambda" {
-    template = "${file("${path.module}/files/start-lambda.py.template")}"
+resource "template_dir" "trigger_job" {
+    source_dir       = "${path.module}/files"
+    destination_dir  = "${path.module}/python-packages"
     vars {
-        project = "${var.project}"
-        environment = "${var.environment}"
+        api_key = "${var.api_key}"
+        endpoint = "${var.endpoint}"
     }
 }
 
-data "archive_file" "start_lambda" {
+resource "null_resource" "python_packages" {
+    provisioner "local-exec" {
+        command = "pip install request -t ${path.module}/python-packages"
+    }
+}
+
+data "archive_file" "trigger_job" {
     type        = "zip"
-    output_path = "${path.module}/archives/start-lambda.zip"
-
-    source {
-        content  = "${data.template_file.start_lambda.rendered}"
-        filename = "start-lambda.py"
-    }
+    output_path = "${path.module}/archives/trigger-job.zip"
+    source_dir  = "${path.module}/python-packages"
+#    source_dir  = "${template_dir.trigger_job.destination_dir}"
+    depends_on = [ "null_resource.python_packages" ]
 }
 
-resource "aws_lambda_function" "start_lambda" {
-    filename         = "${path.module}/archives/start-lambda.zip"
-    function_name    = "ec2-scheduled-start-${random_pet.pet.id}"
-    handler          = "start-lambda.lambda_handler"
+resource "aws_lambda_function" "trigger_job" {
+    filename         = "${path.module}/archives/trigger-job.zip"
+    function_name    = "trigger-batch-job-${random_pet.pet.id}"
+    handler          = "trigger-batch-job.lambda_handler"
     role             = "${var.role_arn}"
-    description      = "Turns on EC2 instances that match the specified tag values"
+    description      = "${var.purpose}"
     runtime          = "python3.6"
-    source_code_hash = "${data.archive_file.start_lambda.output_base64sha256}"
+    source_code_hash = "${data.archive_file.trigger_job.output_base64sha256}"
     tags {
-        Name        = "EC2 Scheduled Start"
+        Name        = "Trigger Job"
         Project     = "${var.project}"
-        Purpose     = "Starts EC2 instances that match the specified tags"
+        Purpose     = "${var.purpose}"
         Creator     = "${var.creator}"
         Environment = "${var.environment}"
         Freetext    = "${var.freetext}"
     }
 }
 
-data "template_file" "stop_lambda" {
-    template = "${file("${path.module}/files/stop-lambda.py.template")}"
-    vars {
-        project = "${var.project}"
-        environment = "${var.environment}"
-    }
-}
-
-data "archive_file" "stop_lambda" {
-    type        = "zip"
-    output_path = "${path.module}/archives/stop-lambda.zip"
-
-    source {
-        content  = "${data.template_file.stop_lambda.rendered}"
-        filename = "stop-lambda.py"
-    }
-}
-
-resource "aws_lambda_function" "stop_lambda" {
-    filename         = "${path.module}/archives/stop-lambda.zip"
-    function_name    = "ec2-scheduled-stop-${random_pet.pet.id}"
-    handler          = "stop-lambda.lambda_handler"
-    role             = "${var.role_arn}"
-    description      = "Turns off EC2 instances that match the specified tag values"
-    runtime          = "python3.6"
-    source_code_hash = "${data.archive_file.stop_lambda.output_base64sha256}"
-    tags {
-        Name        = "EC2 Scheduled Stop"
-        Project     = "${var.project}"
-        Purpose     = "Stops EC2 instances that match the specified tags"
-        Creator     = "${var.creator}"
-        Environment = "${var.environment}"
-        Freetext    = "${var.freetext}"
-    }
-}
-
-resource "aws_cloudwatch_event_rule" "ec2_start" {
-    name                = "trigger-ec2-start-${random_pet.pet.id}"
-    schedule_expression = "${var.start_cron_expression}"
-    description         = "Triggers the Lambda what will start scheduled EC2 instances"
+resource "aws_cloudwatch_event_rule" "trigger_job" {
+    name                = "trigger-batch-${random_pet.pet.id}"
+    schedule_expression = "${var.trigger_cron_expression}"
+    description         = "${var.purpose}"
     is_enabled          = true
 }
 
-resource "aws_cloudwatch_event_target" "start_lambda" {
-    rule = "${aws_cloudwatch_event_rule.ec2_start.name}"
-    arn  = "${aws_lambda_function.start_lambda.arn}"
+resource "aws_cloudwatch_event_target" "trigger_job" {
+    rule = "${aws_cloudwatch_event_rule.trigger_job.name}"
+    arn  = "${aws_lambda_function.trigger_job.arn}"
 }
 
-resource "aws_cloudwatch_event_rule" "ec2_stop" {
-    name                = "trigger-ec2-stop-${random_pet.pet.id}"
-    schedule_expression = "${var.stop_cron_expression}"
-    description         = "Triggers the Lambda what will stop scheduled EC2 instances"
-    is_enabled          = true
-}
-
-resource "aws_cloudwatch_event_target" "stop_lambda" {
-    rule = "${aws_cloudwatch_event_rule.ec2_stop.name}"
-    arn  = "${aws_lambda_function.stop_lambda.arn}"
-}
-
-resource "aws_lambda_permission" "allow_cloudwatch_start" {
+resource "aws_lambda_permission" "trigger_job" {
       action         = "lambda:InvokeFunction"
-      function_name  = "${aws_lambda_function.start_lambda.function_name}"
+      function_name  = "${aws_lambda_function.trigger_job.function_name}"
       principal      = "events.amazonaws.com"
       statement_id   = "AllowExecutionFromCloudWatch"
-      source_arn     = "${aws_cloudwatch_event_rule.ec2_start.arn}"
-}
-
-resource "aws_lambda_permission" "allow_cloudwatch_stop" {
-      action         = "lambda:InvokeFunction"
-      function_name  = "${aws_lambda_function.stop_lambda.function_name}"
-      principal      = "events.amazonaws.com"
-      statement_id   = "AllowExecutionFromCloudWatch"
-      source_arn     = "${aws_cloudwatch_event_rule.ec2_stop.arn}"
+      source_arn     = "${aws_cloudwatch_event_rule.trigger_job.arn}"
 }

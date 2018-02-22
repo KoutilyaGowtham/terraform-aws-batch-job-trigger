@@ -1,5 +1,5 @@
 # Overview
-This Terraform module is ...
+This Terraform module is a combination of a Python Lambda and CloudWatch Event that issues a POST request on a schedule.  I use this to trigger nightly Spring Batch jobs.
 
 # Prerequisites
 * [Terraform](https://terraform.io/) installed and working

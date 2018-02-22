@@ -8,6 +8,11 @@ variable "project" {
     description = "Name of the project these resources are being created for"
 }
 
+variable "purpose" {
+    type = "string"
+    description = "Role the resource will play in the system"
+}
+
 variable "creator" {
     type = "string"
     description = "Person creating the resources"
@@ -23,17 +28,22 @@ variable "freetext" {
     description = "Information that does not fit in the other tags"
 }
 
+variable "trigger_cron_expression" {
+    type = "string"
+    description = "Cron expression describing when the trigger should be fired"
+}
+
 variable "role_arn" {
     type = "string"
-    description = "ARN of the role that has rights to start and stop EC2 instances"
+    description = "ARN of the role that has rights to make HTTP calls"
 }
 
-variable "start_cron_expression" {
+variable "api_key" {
     type = "string"
-    description = "Cron expression describing when the instances should be started"
+    description = "API Key to specify in the x-api-key header"
 }
 
-variable "stop_cron_expression" {
+variable "endpoint" {
     type = "string"
-    description = "Cron expression describing when the instances should be stopped"
+    description = "URL to POST to, triggering the batch job"
 }
